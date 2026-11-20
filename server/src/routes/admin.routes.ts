@@ -22,3 +22,4 @@ router.get('/logins', (req, res, next) => adminController.listLogins(req, res, n
 router.get('/meetings', (req, res, next) => adminController.listMeetings(req, res, next));
 
 export default router;
+

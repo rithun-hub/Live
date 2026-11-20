@@ -29,3 +29,4 @@ export const reportCommentSchema = z.object({
 export const translateCommentSchema = z.object({
   targetLanguage: z.string().min(2).max(10),
 });
+

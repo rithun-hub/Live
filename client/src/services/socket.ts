@@ -14,3 +14,4 @@ export function getSocket(): Socket {
   }
   return socketInstance;
 }
+

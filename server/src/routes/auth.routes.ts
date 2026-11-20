@@ -20,3 +20,4 @@ router.get('/login-history', authenticateJWT, (req, res, next) => authController
 router.patch('/preferences', authenticateJWT, (req, res, next) => authController.updatePreference(req, res, next));
 
 export default router;
+

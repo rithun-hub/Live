@@ -34,3 +34,4 @@ export async function sendOTPEmail(email: string, otp: string, purpose: string):
   console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log(`======================================================\n`);
 }
+

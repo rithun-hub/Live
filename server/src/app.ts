@@ -63,15 +63,17 @@ app.get('/health', (req, res) => {
 // Centralized error handler
 app.use(errorHandler);
 
-// Start server
-server.listen(ENV.PORT, () => {
-  console.log(`\n======================================================`);
-  console.log(`  LIVE Server is active`);
-  console.log(`  Port: http://localhost:${ENV.PORT}`);
-  console.log(`  Client Allowed: ${ENV.CLIENT_URL}`);
-  console.log(`  Database: ${ENV.DATABASE_URL}`);
-  console.log(`  Environment: ${ENV.NODE_ENV}`);
-  console.log(`======================================================\n`);
-});
+// Start server when executed directly as entrypoint
+if (require.main === module) {
+  server.listen(ENV.PORT, () => {
+    console.log(`\n======================================================`);
+    console.log(`  LIVE Server is active`);
+    console.log(`  Port: http://localhost:${ENV.PORT}`);
+    console.log(`  Client Allowed: ${ENV.CLIENT_URL}`);
+    console.log(`  Database: ${ENV.DATABASE_URL}`);
+    console.log(`  Environment: ${ENV.NODE_ENV}`);
+    console.log(`======================================================\n`);
+  });
+}
 
 export { app, server, io };

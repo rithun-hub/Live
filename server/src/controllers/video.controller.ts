@@ -185,3 +185,4 @@ export class VideoController {
 }
 
 export const videoController = new VideoController();
+

@@ -21,3 +21,4 @@ export const updateProgressSchema = z.object({
   progressSeconds: z.number().min(0),
   durationSeconds: z.number().min(0),
 });
+

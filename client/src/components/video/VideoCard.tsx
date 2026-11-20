@@ -120,3 +120,4 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, showProgress = true
     </div>
   );
 };
+

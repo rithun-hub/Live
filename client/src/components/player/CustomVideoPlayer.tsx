@@ -589,3 +589,4 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     </div>
   );
 };
+

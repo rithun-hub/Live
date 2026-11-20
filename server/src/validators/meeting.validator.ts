@@ -12,3 +12,4 @@ export const joinMeetingSchema = z.object({
   roomCode: z.string().min(6).max(20),
   guestName: z.string().min(2).max(50).optional(),
 });
+

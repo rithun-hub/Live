@@ -174,3 +174,4 @@ Global security login audit logs.
 | `host-mute-participant`| Client -> Server | `{ targetSocketId }` | Host forces peer mute |
 | `host-kick-participant`| Client -> Server | `{ targetSocketId }` | Host removes peer from call |
 | `leave-room` | Client -> Server | None | Gracefully exit meeting |
+

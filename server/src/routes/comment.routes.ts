@@ -13,3 +13,4 @@ router.post('/:id/report', authenticateJWT, (req, res, next) => commentControlle
 router.post('/:id/translate', (req, res, next) => commentController.translateComment(req, res, next));
 
 export default router;
+

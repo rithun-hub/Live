@@ -21,3 +21,4 @@ router.get('/notifications', (req, res, next) => userController.getNotifications
 router.patch('/notifications/:id/read', (req, res, next) => userController.markNotificationRead(req, res, next));
 
 export default router;
+

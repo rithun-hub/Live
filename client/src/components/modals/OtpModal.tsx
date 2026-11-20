@@ -201,3 +201,4 @@ export const OtpModal: React.FC<OtpModalProps> = ({
     </div>
   );
 };
+

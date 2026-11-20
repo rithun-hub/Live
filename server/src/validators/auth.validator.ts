@@ -65,3 +65,4 @@ export const updatePreferenceSchema = z.object({
   autoPlayNext: z.boolean().optional(),
   defaultQuality: z.string().optional(),
 });
+

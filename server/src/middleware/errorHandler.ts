@@ -30,3 +30,4 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     message: err.message || 'An unexpected internal server error occurred.',
   });
 }
+

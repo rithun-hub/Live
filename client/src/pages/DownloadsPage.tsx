@@ -192,3 +192,4 @@ export const DownloadsPage: React.FC = () => {
     </div>
   );
 };
+

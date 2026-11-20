@@ -11,3 +11,4 @@ router.post('/:id/end', authenticateJWT, (req, res, next) => meetingController.e
 router.patch('/:id/permissions', authenticateJWT, (req, res, next) => meetingController.updatePermissions(req, res, next));
 
 export default router;
+

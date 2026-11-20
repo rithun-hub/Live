@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('--- Seeding LIVE Database ---');
+  console.log('--- Seeding LIVE Database with Verified Media Streams ---');
 
   // Clean existing data
   await prisma.commentReaction.deleteMany();
@@ -158,91 +158,91 @@ async function main() {
 
   console.log(`✓ Created ${categories.length} categories.`);
 
-  // 3. Videos (Reliable standard open video test streams)
+  // 3. Reliable Public Verified Videos (All HTTP 200 OK with public Range support)
   const videosData = [
     {
-      title: 'Tears of Steel — High-Fidelity 4K Sci-Fi Stream',
-      slug: 'tears-of-steel-4k',
-      description: 'A visually breathtaking science fiction cinematic production exploring dystopian futures and robotics, engineered with exceptional color grading and spatial sound.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 734,
-      fileSizeBytes: 148000000,
+      title: 'View From A Blue Moon — 4K Ultra Cinematic Stream',
+      slug: 'view-from-a-blue-moon-4k',
+      description: 'The first surf film shot entirely in 4K. Visually breathtaking cinematography tracking world-class athletes across South Pacific swells and rugged shorelines with spatial audio.',
+      videoUrl: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-1080p.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 195,
+      fileSizeBytes: 118708871,
       resolution: '4K UHD',
       categoryId: categories[0].id,
       uploaderId: creatorUser.id,
-      viewCount: 14250,
-      likeCount: 980,
+      viewCount: 28450,
+      likeCount: 1920,
     },
     {
-      title: 'Cosmos & Sound: Atmospheric Live Experience',
-      slug: 'cosmos-and-sound-live',
-      description: 'Experience deep celestial visuals synced with analog synth arrangements, captured live in studio with zero post-processing latency.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 653,
-      fileSizeBytes: 112000000,
+      title: 'Oceans of Wonder: Marine Life Documentary',
+      slug: 'oceans-of-wonder-documentary',
+      description: 'Dive into the pristine depths of the open sea. Capturing bioluminescent coral ecosystems, manta rays, and oceanic predators with high-speed underwater camera rigs.',
+      videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 215,
+      fileSizeBytes: 23014356,
       resolution: '1080p 60fps',
-      categoryId: categories[1].id,
-      uploaderId: creatorUser.id,
-      viewCount: 8930,
-      likeCount: 640,
-    },
-    {
-      title: 'Engineering Low-Latency WebRTC & Media Pipelines',
-      slug: 'engineering-low-latency-webrtc',
-      description: 'An architectural masterclass on WebRTC signaling, STUN/TURN traversal, congestion control, and building resilient media servers.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 596,
-      fileSizeBytes: 98000000,
-      resolution: '1080p',
-      categoryId: categories[2].id,
-      uploaderId: adminUser.id,
-      viewCount: 22100,
-      likeCount: 1840,
-    },
-    {
-      title: 'Silent Peaks: An Arctic Wilderness Documentary',
-      slug: 'silent-peaks-arctic-documentary',
-      description: 'Documenting the stillness and resilience of northern landscapes across extreme seasonal shifts, filmed across remote polar observation posts.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 480,
-      fileSizeBytes: 75000000,
-      resolution: '1080p',
       categoryId: categories[3].id,
       uploaderId: creatorUser.id,
-      viewCount: 6710,
-      likeCount: 512,
+      viewCount: 14210,
+      likeCount: 1140,
     },
     {
-      title: 'Urban Geometry: Minimalist Architectural Study',
-      slug: 'urban-geometry-minimalist-study',
-      description: 'A contemplative visual exploration of brutalist and modernist structures in morning twilight, highlighting light, shadow, and concrete forms.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 320,
-      fileSizeBytes: 42000000,
+      title: 'Sintel: High-Fantasy Animated Studio Broadcast',
+      slug: 'sintel-animated-broadcast',
+      description: 'An emotional narrative exploring dragons, desert outposts, and devotion. Masterfully animated and rendered using open computational graphics pipelines.',
+      videoUrl: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 52,
+      fileSizeBytes: 4372373,
       resolution: '1080p',
       categoryId: categories[0].id,
       uploaderId: adminUser.id,
-      viewCount: 4320,
-      likeCount: 390,
+      viewCount: 31200,
+      likeCount: 2450,
     },
     {
-      title: 'Real-Time Graphics and Ray Tracing Frontiers',
-      slug: 'real-time-graphics-ray-tracing',
-      description: 'Demonstrating dynamic lighting calculations and path-traced reflections running in real-time at 120 FPS on modern hardware pipelines.',
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1280&q=80',
-      durationSeconds: 410,
-      fileSizeBytes: 54000000,
-      resolution: '1440p',
-      categoryId: categories[2].id,
+      title: 'Coastal Swell: Ocean Action in 720p HD',
+      slug: 'coastal-swell-action-stream',
+      description: 'Experience rapid wave breaks and crystal waters filmed in tropical reefs with high-frame-rate stabilization.',
+      videoUrl: 'https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-720p.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 195,
+      fileSizeBytes: 72827883,
+      resolution: '720p HD',
+      categoryId: categories[1].id,
       uploaderId: creatorUser.id,
-      viewCount: 11400,
-      likeCount: 920,
+      viewCount: 8930,
+      likeCount: 680,
+    },
+    {
+      title: 'W3C Open Standards Media Pipeline Benchmark',
+      slug: 'w3c-standards-media-pipeline',
+      description: 'Real-time media pipeline demonstration validating HTML5 video buffering, Range headers, and sub-second seeking on low-overhead infrastructure.',
+      videoUrl: 'https://media.w3.org/2010/05/video/movie_300.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 32,
+      fileSizeBytes: 2757913,
+      resolution: '1080p',
+      categoryId: categories[2].id,
+      uploaderId: adminUser.id,
+      viewCount: 9420,
+      likeCount: 790,
+    },
+    {
+      title: 'Nature in Bloom: Micro Macro Flora Broadcast',
+      slug: 'nature-in-bloom-macro-flora',
+      description: 'High magnification botanical photography capturing flower petals unfolding in sunlight. Zero compression artifacts with vivid color fidelity.',
+      videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1280&q=80',
+      durationSeconds: 15,
+      fileSizeBytes: 1128375,
+      resolution: '1080p',
+      categoryId: categories[3].id,
+      uploaderId: creatorUser.id,
+      viewCount: 5630,
+      likeCount: 420,
     },
   ];
 
@@ -251,7 +251,7 @@ async function main() {
     const video = await prisma.video.create({ data: v });
     createdVideos.push(video);
   }
-  console.log(`✓ Seeded ${createdVideos.length} production videos.`);
+  console.log(`✓ Seeded ${createdVideos.length} verified production videos.`);
 
   // 4. Multilingual Comments on Video 1
   const video1 = createdVideos[0];
@@ -299,8 +299,8 @@ async function main() {
     data: {
       userId: normalUser.id,
       videoId: video1.id,
-      progressSeconds: 245,
-      watchedPercent: 33.3,
+      progressSeconds: 45,
+      watchedPercent: 23.0,
       isCompleted: false,
     },
   });
@@ -309,8 +309,8 @@ async function main() {
     data: {
       userId: normalUser.id,
       videoId: createdVideos[1].id,
-      progressSeconds: 520,
-      watchedPercent: 79.6,
+      progressSeconds: 120,
+      watchedPercent: 55.8,
       isCompleted: false,
     },
   });

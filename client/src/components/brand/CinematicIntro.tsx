@@ -127,3 +127,4 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ onComplete }) =>
     </motion.div>
   );
 };
+

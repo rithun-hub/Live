@@ -1,4 +1,4 @@
-import { server } from '../app';
+const TEST_PORT = 5000;
 
 async function runIntegrationTests() {
   console.log('\n======================================================');
@@ -19,7 +19,7 @@ async function runIntegrationTests() {
   }
 
   try {
-    const BASE = 'http://127.0.0.1:5000';
+    const BASE = `http://127.0.0.1:${TEST_PORT}`;
 
     // 1. Health check test
     const healthRes = await fetch(`${BASE}/health`);
@@ -110,12 +110,12 @@ async function runIntegrationTests() {
       },
       body: JSON.stringify({
         videoId: firstVideo.id,
-        progressSeconds: 180,
-        durationSeconds: firstVideo.durationSeconds || 600,
+        progressSeconds: 60,
+        durationSeconds: firstVideo.durationSeconds || 195,
       }),
     });
     const progressData = (await progressRes.json()) as any;
-    assert(progressRes.status === 200 && progressData.progress.progressSeconds === 180, 'Video watch progress saves and syncs accurately');
+    assert(progressRes.status === 200 && progressData.progress.progressSeconds === 60, 'Video watch progress saves and syncs accurately');
 
     // 8. Comment and Multilingual Translation test
     const commentRes = await fetch(`${BASE}/api/v1/comments`, {
@@ -126,7 +126,7 @@ async function runIntegrationTests() {
       },
       body: JSON.stringify({
         videoId: firstVideo.id,
-        content: `Everything happens live on this platform. (Test ID ${Date.now()})`,
+        content: `Everything happens live on this platform. (Test ${Date.now()})`,
       }),
     });
     const commentData = (await commentRes.json()) as any;
@@ -179,10 +179,4 @@ async function runIntegrationTests() {
   }
 }
 
-if (server.listening) {
-  setTimeout(runIntegrationTests, 100);
-} else {
-  server.on('listening', () => {
-    setTimeout(runIntegrationTests, 300);
-  });
-}
+runIntegrationTests();

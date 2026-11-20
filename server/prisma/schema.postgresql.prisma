@@ -427,3 +427,4 @@ model Notification {
   @@index([userId])
   @@index([isRead])
 }
+

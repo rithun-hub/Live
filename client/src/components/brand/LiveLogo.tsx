@@ -75,3 +75,4 @@ export const LiveLogo: React.FC<LiveLogoProps> = ({
     </div>
   );
 };
+
