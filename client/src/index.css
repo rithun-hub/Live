@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #faf8f5;
+    --color-surface: #ffffff;
+    --color-border: #e4dfd8;
+    --color-text-primary: #151719;
+    --color-text-secondary: #5a626a;
+    --color-accent: #e04f38;
+  }
+
+  .dark {
+    --color-bg: #0c0d0e;
+    --color-surface: #181a1d;
+    --color-border: #26292e;
+    --color-text-primary: #f4f4f5;
+    --color-text-secondary: #9ca3af;
+    --color-accent: #e04f38;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2a2e35;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4cfc7;
+  border-radius: 9999px;
+}
+
+/* Range input styling for video player */
+input[type="range"] {
+  accent-color: #e04f38;
+}

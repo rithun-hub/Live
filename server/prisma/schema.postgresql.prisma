@@ -1,0 +1,429 @@
+// PostgreSQL Prisma Schema for LIVE Platform
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  CREATOR
+  ADMIN
+}
+
+enum ThemePreference {
+  AUTO
+  DARK
+  LIGHT
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  HOST
+  CO_HOST
+  PARTICIPANT
+}
+
+enum DownloadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  INTERRUPTED
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  MISINFORMATION
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  username          String            @unique
+  passwordHash      String
+  role              Role              @default(USER)
+  isEmailVerified   Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  dailyDownloadLimit Int              @default(10)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  profile           UserProfile?
+  preference        UserPreference?
+  sessions          UserSession[]
+  trustedDevices    TrustedDevice[]
+  loginHistories    LoginHistory[]
+  otpVerifications  OTPVerification[]
+  videos            Video[]           @relation("UserVideos")
+  videoProgresses   VideoProgress[]
+  downloads         VideoDownload[]
+  hostedMeetings    Meeting[]         @relation("HostedMeetings")
+  meetingParticipants MeetingParticipant[]
+  meetingMessages   MeetingMessage[]
+  meetingInvitations MeetingInvitation[] @relation("ReceivedInvitations")
+  sentInvitations   MeetingInvitation[] @relation("SentInvitations")
+  comments          Comment[]
+  commentReplies    CommentReply[]
+  commentReactions  CommentReaction[]
+  commentReports    CommentReport[]   @relation("UserReports")
+  notifications     Notification[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  coverUrl    String?
+  country     String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserPreference {
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme           ThemePreference @default(AUTO)
+  preferredLanguage String        @default("en")
+  emailNotifications Boolean      @default(true)
+  autoPlayNext    Boolean         @default(true)
+  defaultQuality  String          @default("auto")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String    @unique
+  deviceFingerprint String?
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  lastActiveAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+}
+
+model TrustedDevice {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceFingerprint String
+  browserName       String?
+  browserVersion    String?
+  osName            String?
+  deviceType        String?
+  lastUsedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, deviceFingerprint])
+  @@index([userId])
+}
+
+model LoginHistory {
+  id             String   @id @default(uuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  attemptedEmail String
+  ipAddress      String
+  browserName    String?
+  browserVersion String?
+  osName         String?
+  deviceType     String?
+  deviceModel    String?
+  city           String?
+  state          String?
+  country        String?
+  isSuccess      Boolean
+  failureReason  String?
+  timestamp      DateTime @default(now())
+
+  @@index([userId])
+  @@index([attemptedEmail])
+  @@index([timestamp])
+}
+
+model OTPVerification {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email      String
+  otpHash    String
+  purpose    String
+  deviceFingerprint String?
+  attempts   Int      @default(0)
+  isUsed     Boolean  @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@index([purpose])
+}
+
+model VideoCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  videos      Video[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id             String         @id @default(uuid())
+  title          String
+  slug           String         @unique
+  description    String?
+  videoUrl       String
+  thumbnailUrl   String?
+  durationSeconds Float         @default(0)
+  fileSizeBytes  Int            @default(0)
+  mimeType       String         @default("video/mp4")
+  resolution     String?
+  categoryId     String?
+  category       VideoCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  uploaderId     String
+  uploader       User           @relation("UserVideos", fields: [uploaderId], references: [id], onDelete: Cascade)
+  viewCount      Int            @default(0)
+  likeCount      Int            @default(0)
+  isPublished    Boolean        @default(true)
+  subtitlesUrl   String?
+  hlsPlaylistUrl String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  progresses     VideoProgress[]
+  downloads      VideoDownload[]
+  comments       Comment[]
+
+  @@index([uploaderId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@index([slug])
+}
+
+model VideoProgress {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId          String
+  video            Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  progressSeconds  Float    @default(0)
+  watchedPercent   Float    @default(0)
+  isCompleted      Boolean  @default(false)
+  lastWatchedAt    DateTime @default(now())
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+model VideoDownload {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId       String
+  video         Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  fileSizeBytes Int            @default(0)
+  status        DownloadStatus @default(PENDING)
+  ipAddress     String?
+  browser       String?
+  os            String?
+  deviceType    String?
+  errorMessage  String?
+  downloadDate  DateTime       @default(now())
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([downloadDate])
+}
+
+model Meeting {
+  id                 String          @id @default(uuid())
+  roomCode           String          @unique
+  title              String
+  description        String?
+  hostId             String
+  host               User            @relation("HostedMeetings", fields: [hostId], references: [id], onDelete: Cascade)
+  status             MeetingStatus   @default(ACTIVE)
+  isLocked           Boolean         @default(false)
+  screenShareAllowed Boolean         @default(true)
+  chatAllowed        Boolean         @default(true)
+  maxParticipants    Int             @default(50)
+  startedAt          DateTime        @default(now())
+  endedAt            DateTime?
+
+  participants       MeetingParticipant[]
+  messages           MeetingMessage[]
+  invitations        MeetingInvitation[]
+
+  @@index([roomCode])
+  @@index([hostId])
+}
+
+model MeetingParticipant {
+  id         String          @id @default(uuid())
+  meetingId  String
+  meeting    Meeting         @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestName  String?
+  socketId   String?
+  role       ParticipantRole @default(PARTICIPANT)
+  isMuted    Boolean         @default(false)
+  isVideoOff Boolean         @default(false)
+  joinedAt   DateTime        @default(now())
+  leftAt     DateTime?
+
+  @@index([meetingId])
+  @@index([userId])
+}
+
+model MeetingMessage {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  senderId  String?
+  sender    User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  senderName String
+  content   String
+  fileUrl   String?
+  fileName  String?
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+}
+
+model MeetingInvitation {
+  id          String   @id @default(uuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  inviterId   String
+  inviter     User     @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId   String
+  invitee     User     @relation("ReceivedInvitations", fields: [inviteeId], references: [id], onDelete: Cascade)
+  isAccepted  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([inviteeId])
+}
+
+model Comment {
+  id          String         @id @default(uuid())
+  videoId     String
+  video       Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String
+  isEdited    Boolean        @default(false)
+  likeCount   Int            @default(0)
+  dislikeCount Int           @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  replies     CommentReply[]
+  reactions   CommentReaction[]
+  reports     CommentReport[]
+
+  @@index([videoId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CommentReply {
+  id          String   @id @default(uuid())
+  commentId   String
+  comment     Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String
+  isEdited    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([commentId])
+  @@index([userId])
+}
+
+model CommentReaction {
+  id        String   @id @default(uuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model CommentReport {
+  id          String       @id @default(uuid())
+  commentId   String
+  comment     Comment      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason      ReportReason
+  details     String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  reviewedAt  DateTime?
+
+  @@index([commentId])
+  @@index([reporterId])
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  type      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}

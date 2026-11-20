@@ -1,0 +1,15 @@
+{
+  "name": "live",
+  "version": "1.0.0",
+  "description": "LIVE - Complete Full-Stack Video Streaming & Real-Time Communication Platform",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": ["video-streaming", "webrtc", "video-calls", "live", "fullstack"],
+  "author": "LIVE Platform Engineering",
+  "license": "ISC"
+}
