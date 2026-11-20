@@ -19,7 +19,7 @@ import {
   Layers,
   Activity,
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { UploadModal } from '../components/modals/UploadModal';
 import { EditVideoModal } from '../components/modals/EditVideoModal';
 import { ConfirmModal } from '../components/modals/ConfirmModal';
@@ -512,7 +512,7 @@ export const AdminDashboardPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={v.thumbnailUrl}
+                          src={getMediaUrl(v.thumbnailUrl)}
                           alt={v.title}
                           className="w-14 h-9 object-cover rounded-lg bg-zinc-900 flex-shrink-0"
                         />

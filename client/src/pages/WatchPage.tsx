@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Download, Eye, ThumbsUp, Share2, Check, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { Video } from '../types';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { CustomVideoPlayer } from '../components/player/CustomVideoPlayer';
 import { CommentSection } from '../components/comments/CommentSection';
 import { EditVideoModal } from '../components/modals/EditVideoModal';
@@ -77,7 +77,7 @@ export const WatchPage: React.FC = () => {
 
         // Trigger browser download
         const a = document.createElement('a');
-        a.href = videoUrl;
+        a.href = getMediaUrl(videoUrl);
         a.download = `${videoTitle.replace(/[^a-z0-9]/gi, '_')}.mp4`;
         a.target = '_blank';
         document.body.appendChild(a);
@@ -311,7 +311,7 @@ export const WatchPage: React.FC = () => {
               >
                 <div className="relative aspect-video w-32 flex-shrink-0 rounded-lg overflow-hidden bg-zinc-900">
                   <img
-                    src={rec.thumbnailUrl}
+                    src={getMediaUrl(rec.thumbnailUrl)}
                     alt={rec.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

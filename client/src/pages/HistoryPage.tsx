@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { History, Play, CheckCircle } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -95,7 +95,7 @@ export const HistoryPage: React.FC = () => {
               <div className="flex gap-4 items-center">
                 <div className="relative aspect-video w-36 sm:w-44 rounded-xl overflow-hidden bg-zinc-900 flex-shrink-0">
                   <img
-                    src={item.video.thumbnailUrl}
+                    src={getMediaUrl(item.video.thumbnailUrl)}
                     alt={item.video.title}
                     className="w-full h-full object-cover"
                   />

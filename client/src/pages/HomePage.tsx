@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Video as VideoIcon, Compass, Flame, Clock } from 'lucide-react';
 import { Video, VideoCategory } from '../types';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { VideoCard } from '../components/video/VideoCard';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -65,7 +65,7 @@ export const HomePage: React.FC = () => {
           <div className="relative aspect-[21/9] min-h-[340px] max-h-[500px] w-full">
             <img
               src={
-                heroVideo.thumbnailUrl ||
+                getMediaUrl(heroVideo.thumbnailUrl) ||
                 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1920&q=80'
               }
               alt={heroVideo.title}

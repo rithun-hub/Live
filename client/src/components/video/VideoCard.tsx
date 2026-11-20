@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Eye } from 'lucide-react';
 import { Video } from '../../types';
+import { getMediaUrl } from '../../services/api';
 import { formatDistanceToNow } from 'date-fns';
 
 interface VideoCardProps {
@@ -30,7 +31,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, showProgress = true
       >
         <img
           src={
-            video.thumbnailUrl ||
+            getMediaUrl(video.thumbnailUrl) ||
             'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1280&q=80'
           }
           alt={video.title}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, AlertCircle, CheckCircle, Clock, ShieldCheck, HardDrive } from 'lucide-react';
 import { VideoDownloadRecord } from '../types';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -149,7 +149,7 @@ export const DownloadsPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={d.video.thumbnailUrl}
+                          src={getMediaUrl(d.video.thumbnailUrl)}
                           alt={d.video.title}
                           className="w-14 h-9 object-cover rounded-lg bg-zinc-900 flex-shrink-0"
                         />

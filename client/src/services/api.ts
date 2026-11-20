@@ -1,4 +1,32 @@
-const BASE_URL = '/api/v1';
+const getBaseUrl = (): string => {
+  const envApi = import.meta.env.VITE_API_URL;
+  if (!envApi) return '/api/v1';
+  const trimmed = envApi.trim().replace(/\/+$/, '');
+  if (!trimmed.endsWith('/api/v1') && !trimmed.endsWith('/api')) {
+    return `${trimmed}/api/v1`;
+  }
+  return trimmed;
+};
+
+const BASE_URL = getBaseUrl();
+
+export function getMediaUrl(mediaPath?: string | null): string {
+  if (!mediaPath) return '';
+  if (
+    mediaPath.startsWith('http://') ||
+    mediaPath.startsWith('https://') ||
+    mediaPath.startsWith('blob:') ||
+    mediaPath.startsWith('data:')
+  ) {
+    return mediaPath;
+  }
+  const rawApi = import.meta.env.VITE_API_URL;
+  if (rawApi) {
+    const origin = rawApi.trim().replace(/\/api(\/v1)?\/?$/, '');
+    return `${origin}${mediaPath.startsWith('/') ? mediaPath : `/${mediaPath}`}`;
+  }
+  return mediaPath;
+}
 
 class ApiClient {
   private getAccessToken(): string | null {
@@ -20,7 +48,8 @@ class ApiClient {
   }
 
   async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${BASE_URL}${endpoint}`;
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${BASE_URL}${cleanEndpoint}`;
     const token = this.getAccessToken();
 
     const headers: Record<string, string> = {

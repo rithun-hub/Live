@@ -15,7 +15,7 @@ import {
   X,
   FastForward,
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, getMediaUrl } from '../../services/api';
 
 interface CustomVideoPlayerProps {
   src: string;
@@ -313,8 +313,8 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       {/* HTML5 Video Element */}
       <video
         ref={videoRef}
-        src={src}
-        poster={poster}
+        src={getMediaUrl(src)}
+        poster={getMediaUrl(poster)}
         onClick={togglePlay}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}

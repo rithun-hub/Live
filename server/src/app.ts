@@ -11,10 +11,41 @@ import { setupSignaling } from './sockets/signaling';
 const app = express();
 const server = http.createServer(app);
 
+// Configure allowed CORS origins
+const clientOrigins: string[] = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+];
+
+if (ENV.CLIENT_URL) {
+  const envOrigins = ENV.CLIENT_URL.split(',').map((url) => url.trim().replace(/\/+$/, ''));
+  clientOrigins.push(...envOrigins);
+}
+
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) return true;
+  const normalized = origin.trim().replace(/\/+$/, '');
+  if (clientOrigins.includes(normalized)) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    if (hostname.endsWith('.vercel.app')) return true;
+  } catch {
+    // Non-URL origin
+  }
+  return false;
+};
+
 // Initialize Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: [ENV.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Socket CORS blocked for origin: ${origin}`), false);
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   },
@@ -28,8 +59,15 @@ setupSignaling(io);
 // Middleware
 app.use(
   cors({
-    origin: [ENV.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   })
 );
 app.use(express.json({ limit: '20mb' }));

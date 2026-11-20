@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Image as ImageIcon, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { VideoCategory } from '../../types';
-import { api } from '../../services/api';
+import { api, getMediaUrl } from '../../services/api';
 
 interface EditVideoModalProps {
   isOpen: boolean;
@@ -41,7 +41,7 @@ export const EditVideoModal: React.FC<EditVideoModalProps> = ({
       setCategoryId(video.categoryId || '');
       setIsPublished(video.isPublished !== undefined ? video.isPublished : true);
       setThumbFile(null);
-      setThumbPreview(video.thumbnailUrl || null);
+      setThumbPreview(getMediaUrl(video.thumbnailUrl) || null);
       setError(null);
       setSavedSuccess(false);
 
