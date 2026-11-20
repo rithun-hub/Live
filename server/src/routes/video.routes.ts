@@ -15,6 +15,17 @@ router.post('/downloads/:id/authorize', authenticateJWT, (req, res, next) => vid
 router.patch('/downloads/:downloadId/complete', authenticateJWT, (req, res, next) => videoController.completeDownload(req, res, next));
 
 router.get('/:id', optionalAuth, (req, res, next) => videoController.getVideo(req, res, next));
+router.put(
+  '/:id',
+  authenticateJWT,
+  uploadMedia.single('thumbnail'),
+  (req, res, next) => videoController.updateVideo(req, res, next)
+);
+router.delete(
+  '/:id',
+  authenticateJWT,
+  (req, res, next) => videoController.deleteVideo(req, res, next)
+);
 router.post('/progress', authenticateJWT, (req, res, next) => videoController.updateProgress(req, res, next));
 
 router.post(

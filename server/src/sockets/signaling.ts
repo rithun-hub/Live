@@ -26,8 +26,25 @@ interface RoomState {
 }
 
 const activeRooms = new Map<string, RoomState>();
+let signalingIO: SocketIOServer | null = null;
+
+export function getIO(): SocketIOServer | null {
+  return signalingIO;
+}
+
+export function notifyAndCloseMeetingRoom(roomCode: string, endedBy: string = 'Host') {
+  if (signalingIO) {
+    signalingIO.to(roomCode).emit('meeting-ended-by-host', {
+      roomCode,
+      message: `This meeting was ended by ${endedBy}. All participants have been disconnected.`,
+      endedAt: new Date().toISOString(),
+    });
+  }
+  activeRooms.delete(roomCode);
+}
 
 export function setupSignaling(io: SocketIOServer) {
+  signalingIO = io;
   io.on('connection', (socket: Socket) => {
     let currentRoomCode: string | null = null;
 
@@ -276,6 +293,65 @@ export function setupSignaling(io: SocketIOServer) {
           chatAllowed: room.chatAllowed,
         },
       }).catch((e) => console.error('Error updating meeting permissions DB', e));
+    });
+
+    // 10b. Host Controls: End Meeting for All Participants
+    socket.on('host-end-meeting-all', async (data?: { roomCode?: string }) => {
+      try {
+        const code = data?.roomCode || currentRoomCode;
+        if (!code) return;
+
+        const room = activeRooms.get(code);
+        const participant = room?.participants.get(socket.id);
+
+        const meeting = await prisma.meeting.findFirst({
+          where: { OR: [{ id: code }, { roomCode: code }] },
+          include: { host: true },
+        });
+
+        if (!meeting) {
+          socket.emit('meeting-error', { message: 'Meeting room could not be found.' });
+          return;
+        }
+
+        const isHost = participant?.role === 'HOST' || (participant?.userId && participant.userId === meeting.hostId);
+        let isAdmin = false;
+
+        if (participant?.userId) {
+          const userRecord = await prisma.user.findUnique({
+            where: { id: participant.userId },
+            select: { role: true },
+          });
+          isAdmin = userRecord?.role === 'ADMIN';
+        }
+
+        if (!isHost && !isAdmin) {
+          socket.emit('meeting-error', { message: 'Permission denied: Only the meeting creator or administrator can end the session.' });
+          return;
+        }
+
+        // 1. Update meeting status in DB to ENDED and record endedAt
+        await prisma.meeting.update({
+          where: { id: meeting.id },
+          data: {
+            status: 'ENDED',
+            endedAt: new Date(),
+          },
+        });
+
+        // 2. Mark all participant sessions as left
+        await prisma.meetingParticipant.updateMany({
+          where: { meetingId: meeting.id, leftAt: null },
+          data: { leftAt: new Date() },
+        });
+
+        // 3. Notify all connected participants and close room memory state
+        notifyAndCloseMeetingRoom(meeting.roomCode, isAdmin ? 'the Administrator' : 'the Host');
+        console.log(`[Socket] Meeting ${meeting.roomCode} was officially ended by ${isAdmin ? 'admin' : 'host'}`);
+      } catch (err) {
+        console.error('Error handling host-end-meeting-all', err);
+        socket.emit('meeting-error', { message: 'Failed to end meeting session.' });
+      }
     });
 
     // 11. Disconnect / Leave

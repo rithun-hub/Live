@@ -3,6 +3,7 @@ import { meetingService } from '../services/meeting.service';
 import { AuthRequest } from '../middleware/auth';
 import { createMeetingSchema } from '../validators/meeting.validator';
 import { ENV } from '../config/env';
+import { notifyAndCloseMeetingRoom } from '../sockets/signaling';
 
 export class MeetingController {
   async createMeeting(req: AuthRequest, res: Response, next: NextFunction) {
@@ -64,9 +65,14 @@ export class MeetingController {
   async endMeeting(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await meetingService.endMeeting(id, req.user!.userId);
+      const updated = await meetingService.endMeeting(id, req.user!.userId, req.user!.role);
+      notifyAndCloseMeetingRoom(updated.roomCode, req.user!.role === 'ADMIN' ? 'the Administrator' : 'the Host');
 
-      return res.status(200).json({ success: true, message: 'Meeting has been ended by host.' });
+      return res.status(200).json({
+        success: true,
+        message: 'Meeting has been ended successfully.',
+        meeting: updated,
+      });
     } catch (error) {
       next(error);
     }

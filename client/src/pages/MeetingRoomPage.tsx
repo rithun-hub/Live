@@ -21,10 +21,12 @@ import {
   Copy,
   Check,
   Radio,
+  AlertOctagon,
 } from 'lucide-react';
 import { getSocket } from '../services/socket';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 interface ParticipantPeer {
   socketId: string;
@@ -70,6 +72,15 @@ export const MeetingRoomPage: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [screenShareAllowed, setScreenShareAllowed] = useState(true);
   const [chatAllowed, setChatAllowed] = useState(true);
+
+  // End meeting state
+  const [meetingEndedState, setMeetingEndedState] = useState<{
+    isEnded: boolean;
+    message: string;
+    endedAt?: string;
+  } | null>(null);
+  const [showEndConfirmModal, setShowEndConfirmModal] = useState(false);
+  const [isEndingMeeting, setIsEndingMeeting] = useState(false);
 
   // UI Drawers & Panels
   const [activeDrawer, setActiveDrawer] = useState<'chat' | 'participants' | null>(null);
@@ -128,6 +139,29 @@ export const MeetingRoomPage: React.FC = () => {
   // 2. Connect to Socket Signaling and Join Room
   useEffect(() => {
     if (!roomCode) return;
+
+    // Pre-check room details and status from API
+    api.get(`/meetings/${roomCode}`)
+      .then((res) => {
+        if (res.success && res.meeting) {
+          setMeetingTitle(res.meeting.title || 'LIVE Meeting');
+          if (res.meeting.status === 'ENDED') {
+            setMeetingEndedState({
+              isEnded: true,
+              message: 'This conference has ended. New participants cannot join.',
+              endedAt: res.meeting.endedAt,
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.message?.toLowerCase().includes('ended')) {
+          setMeetingEndedState({
+            isEnded: true,
+            message: 'This meeting has ended.',
+          });
+        }
+      });
 
     const guestName = sessionStorage.getItem('live_guest_name') || 'Participant';
     const displayName = user?.profile?.displayName || user?.username || guestName;
@@ -224,8 +258,29 @@ export const MeetingRoomPage: React.FC = () => {
       setTimeout(() => setFloatingReaction(null), 2500);
     });
 
+    // Meeting ended by host broadcast
+    socket.on('meeting-ended-by-host', (data: any) => {
+      if (localStream) localStream.getTracks().forEach((t) => t.stop());
+      if (screenStream) screenStream.getTracks().forEach((t) => t.stop());
+      peersRef.current.forEach((pc) => pc.close());
+      peersRef.current.clear();
+      setIsScreenSharing(false);
+      setMeetingEndedState({
+        isEnded: true,
+        message: data?.message || 'This meeting was ended by the host. All participants have been disconnected.',
+        endedAt: data?.endedAt,
+      });
+    });
+
     // Meeting error
     socket.on('meeting-error', (data) => {
+      if (data.message?.toLowerCase().includes('ended')) {
+        setMeetingEndedState({
+          isEnded: true,
+          message: data.message,
+        });
+        return;
+      }
       alert(data.message);
       navigate('/meetings');
     });
@@ -296,6 +351,7 @@ export const MeetingRoomPage: React.FC = () => {
       socket.off('new-meeting-message');
       socket.off('meeting-reaction');
       socket.off('meeting-error');
+      socket.off('meeting-ended-by-host');
       socket.off('webrtc-offer');
       socket.off('webrtc-answer');
       socket.off('webrtc-ice-candidate');
@@ -490,6 +546,35 @@ export const MeetingRoomPage: React.FC = () => {
     navigate('/meetings');
   };
 
+  const canEndMeeting = isHost || user?.role === 'ADMIN';
+
+  // End Meeting for Everyone
+  const handleHostEndMeeting = async () => {
+    if (!roomCode) return;
+    setIsEndingMeeting(true);
+    try {
+      if (localStream) localStream.getTracks().forEach((t) => t.stop());
+      if (screenStream) screenStream.getTracks().forEach((t) => t.stop());
+      peersRef.current.forEach((pc) => pc.close());
+      peersRef.current.clear();
+      setIsScreenSharing(false);
+
+      socket.emit('host-end-meeting-all', { roomCode });
+      await api.post(`/meetings/${roomCode}/end`).catch(() => {});
+
+      setShowEndConfirmModal(false);
+      setMeetingEndedState({
+        isEnded: true,
+        message: 'You have officially ended the meeting session for all participants.',
+        endedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to end meeting.');
+    } finally {
+      setIsEndingMeeting(false);
+    }
+  };
+
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -503,6 +588,56 @@ export const MeetingRoomPage: React.FC = () => {
   };
 
   const participantList = Array.from(participants.values());
+
+  if (meetingEndedState?.isEnded) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#0c0d0e] text-zinc-100 flex flex-col items-center justify-center p-6 font-sans select-none animate-fade-in">
+        <div className="w-full max-w-lg p-8 rounded-3xl bg-[#15171a] border border-[#22252a] text-center space-y-6 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-[#e04f38]/15 text-[#e04f38] flex items-center justify-center mx-auto shadow-inner">
+            <Radio size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono">
+              <span>Room: {roomCode}</span>
+            </div>
+            <h1 className="font-heading font-black text-2xl sm:text-3xl tracking-tight text-white">
+              Meeting Ended
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+              {meetingEndedState.message}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#111316] border border-[#26292e] grid grid-cols-2 gap-4 text-left">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Session Duration</span>
+              <p className="font-mono font-bold text-sm text-zinc-200 mt-0.5">{formatTimer(callDurationSeconds)}</p>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Room Status</span>
+              <p className="font-mono font-bold text-sm text-[#e04f38] mt-0.5">DISCONNECTED</p>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => navigate('/meetings')}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-xs text-white bg-[#e04f38] hover:bg-[#cc422d] transition-colors shadow-sm"
+            >
+              Return to Meetings
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-semibold text-xs text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0c0d0e] text-white flex flex-col select-none overflow-hidden font-sans">
@@ -573,6 +708,17 @@ export const MeetingRoomPage: React.FC = () => {
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#e04f38]" />
             )}
           </button>
+
+          {canEndMeeting && (
+            <button
+              onClick={() => setShowEndConfirmModal(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-red-600/90 hover:bg-red-600 transition-colors border border-red-500/40 ml-1"
+              title="End session for all participants"
+            >
+              <AlertOctagon size={13} />
+              <span>End Session</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -925,12 +1071,24 @@ export const MeetingRoomPage: React.FC = () => {
           {/* Leave Call Button */}
           <button
             onClick={handleLeaveCall}
-            className="px-5 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-2 shadow-lg transition-colors ml-2"
+            className="px-4 sm:px-5 py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold flex items-center gap-2 shadow-lg transition-colors ml-2"
             title="Leave Meeting"
           >
             <PhoneOff size={18} />
             <span className="hidden sm:inline text-xs">Leave Call</span>
           </button>
+
+          {/* End Meeting for All (Host / Admin Only) */}
+          {canEndMeeting && (
+            <button
+              onClick={() => setShowEndConfirmModal(true)}
+              className="px-4 sm:px-5 py-3.5 rounded-2xl bg-[#e04f38] hover:bg-[#cc422d] text-white font-bold flex items-center gap-2 shadow-lg transition-colors"
+              title="End Meeting for Everyone"
+            >
+              <AlertOctagon size={18} />
+              <span className="hidden sm:inline text-xs">End Meeting</span>
+            </button>
+          )}
         </div>
 
         {/* Right Side Empty Spacer */}
@@ -938,6 +1096,19 @@ export const MeetingRoomPage: React.FC = () => {
           WebRTC P2P
         </div>
       </footer>
+
+      {/* Confirmation Modal to End Meeting for Everyone */}
+      <ConfirmModal
+        isOpen={showEndConfirmModal}
+        title="End Meeting for Everyone?"
+        message="Ending this meeting will immediately disconnect every participant, stop all active screen sharing, and permanently mark this room session as ENDED. New participants will not be allowed to enter."
+        confirmText="End Meeting for All"
+        cancelText="Keep Meeting Active"
+        confirmVariant="danger"
+        isLoading={isEndingMeeting}
+        onConfirm={handleHostEndMeeting}
+        onClose={() => setShowEndConfirmModal(false)}
+      />
     </div>
   );
 };

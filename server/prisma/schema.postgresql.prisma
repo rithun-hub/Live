@@ -230,6 +230,7 @@ model Video {
   progresses     VideoProgress[]
   downloads      VideoDownload[]
   comments       Comment[]
+  views          VideoView[]
 
   @@index([uploaderId])
   @@index([categoryId])
@@ -271,6 +272,19 @@ model VideoDownload {
   @@index([userId])
   @@index([videoId])
   @@index([downloadDate])
+}
+
+model VideoView {
+  id        String   @id @default(uuid())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId    String?
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  @@index([videoId, ipAddress, createdAt])
+  @@index([videoId, userId, createdAt])
+  @@index([createdAt])
 }
 
 model Meeting {

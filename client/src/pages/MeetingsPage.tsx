@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Video, Plus, ArrowRight, Shield, Users, Radio } from 'lucide-react';
+import { Video, Plus, ArrowRight, Shield, Users, Radio, AlertOctagon, PowerOff } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Meeting } from '../types';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 export const MeetingsPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -15,8 +16,10 @@ export const MeetingsPage: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [myMeetings, setMyMeetings] = useState<Meeting[]>([]);
+  const [meetingToEnd, setMeetingToEnd] = useState<Meeting | null>(null);
+  const [isEndingMeeting, setIsEndingMeeting] = useState(false);
 
-  useEffect(() => {
+  const fetchMeetings = () => {
     if (isAuthenticated) {
       api.get('/meetings/my-meetings')
         .then((res) => {
@@ -24,7 +27,29 @@ export const MeetingsPage: React.FC = () => {
         })
         .catch(() => {});
     }
+  };
+
+  useEffect(() => {
+    fetchMeetings();
   }, [isAuthenticated]);
+
+  const handleConfirmEndMeeting = async () => {
+    if (!meetingToEnd) return;
+    setIsEndingMeeting(true);
+    try {
+      const res = await api.post(`/meetings/${meetingToEnd.roomCode}/end`);
+      if (res.success) {
+        setMyMeetings((prev) =>
+          prev.map((m) => (m.id === meetingToEnd.id ? { ...m, status: 'ENDED' } : m))
+        );
+        setMeetingToEnd(null);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to end meeting.');
+    } finally {
+      setIsEndingMeeting(false);
+    }
+  };
 
   const handleCreateMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,28 +244,60 @@ export const MeetingsPage: React.FC = () => {
                   <h4 className="font-bold text-zinc-900 dark:text-zinc-100">{m.title}</h4>
                   <p className="text-[11px] text-zinc-400 font-mono">Code: {m.roomCode}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       m.status === 'ACTIVE'
                         ? 'bg-emerald-500/15 text-emerald-500'
-                        : 'bg-zinc-500/15 text-zinc-500'
+                        : 'bg-red-500/10 text-zinc-400 border border-zinc-700/40'
                     }`}
                   >
                     {m.status}
                   </span>
-                  <button
-                    onClick={() => navigate(`/meeting/${m.roomCode}`)}
-                    className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-[#2a2e35] text-zinc-700 dark:text-zinc-300 hover:border-[#e04f38] text-xs font-semibold"
-                  >
-                    Enter
-                  </button>
+
+                  {m.status === 'ACTIVE' ? (
+                    <>
+                      {(user?.id === m.hostId || user?.role === 'ADMIN') && (
+                        <button
+                          onClick={() => setMeetingToEnd(m)}
+                          className="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          title="End meeting for all participants"
+                        >
+                          <PowerOff size={13} />
+                          <span>End Meeting</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/meeting/${m.roomCode}`)}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-[#2a2e35] text-zinc-700 dark:text-zinc-300 hover:border-[#e04f38] text-xs font-semibold transition-colors"
+                      >
+                        Enter
+                      </button>
+                    </>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 text-xs font-medium border border-zinc-200 dark:border-zinc-800 cursor-not-allowed">
+                      Closed
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </section>
       )}
+
+      {/* Confirmation Modal to End Meeting */}
+      <ConfirmModal
+        isOpen={Boolean(meetingToEnd)}
+        title="End Meeting Session?"
+        message={`Ending "${meetingToEnd?.title}" (Code: ${meetingToEnd?.roomCode}) will disconnect all participants and record the meeting as officially ENDED in the database. New participants will not be able to enter.`}
+        confirmText="End Meeting for All"
+        cancelText="Keep Meeting Active"
+        confirmVariant="danger"
+        isLoading={isEndingMeeting}
+        onConfirm={handleConfirmEndMeeting}
+        onClose={() => setMeetingToEnd(null)}
+      />
     </div>
   );
 };

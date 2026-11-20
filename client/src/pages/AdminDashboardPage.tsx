@@ -13,14 +13,23 @@ import {
   CheckCircle,
   XCircle,
   Search,
+  Edit3,
+  PowerOff,
+  Clock,
+  Layers,
+  Activity,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { UploadModal } from '../components/modals/UploadModal';
+import { EditVideoModal } from '../components/modals/EditVideoModal';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 import { formatDistanceToNow } from 'date-fns';
 
 export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'videos' | 'reports' | 'downloads' | 'logins'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'users' | 'videos' | 'meetings' | 'reports' | 'downloads' | 'logins'
+  >('overview');
   const [isLoading, setIsLoading] = useState(true);
 
   // Tab Data
@@ -30,7 +39,15 @@ export const AdminDashboardPage: React.FC = () => {
   const [downloadsList, setDownloadsList] = useState<any[]>([]);
   const [loginsList, setLoginsList] = useState<any[]>([]);
   const [videosList, setVideosList] = useState<any[]>([]);
+  const [meetingsList, setMeetingsList] = useState<any[]>([]);
+
+  // Modals & Action States
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [videoToEdit, setVideoToEdit] = useState<any | null>(null);
+  const [videoToDelete, setVideoToDelete] = useState<any | null>(null);
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
+  const [meetingToEnd, setMeetingToEnd] = useState<any | null>(null);
+  const [isEndingMeeting, setIsEndingMeeting] = useState(false);
 
   const fetchDashboardStats = async () => {
     try {
@@ -56,8 +73,11 @@ export const AdminDashboardPage: React.FC = () => {
         const res = await api.get(`/admin/users?search=${encodeURIComponent(userSearch)}`);
         if (res.success) setUsersList(res.users);
       } else if (activeTab === 'videos') {
-        const res = await api.get('/videos?limit=50');
+        const res = await api.get('/videos?limit=100');
         if (res.success) setVideosList(res.videos);
+      } else if (activeTab === 'meetings') {
+        const res = await api.get('/admin/meetings');
+        if (res.success) setMeetingsList(res.meetings);
       } else if (activeTab === 'reports') {
         const res = await api.get('/admin/reports');
         if (res.success) setReportsList(res.reports);
@@ -83,6 +103,7 @@ export const AdminDashboardPage: React.FC = () => {
       setUsersList((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isActive: !currentActive } : u))
       );
+      fetchDashboardStats();
     } catch (err: any) {
       alert(err.message || 'Failed to toggle account status.');
     }
@@ -92,7 +113,9 @@ export const AdminDashboardPage: React.FC = () => {
     const val = prompt('Set new daily download limit for user:', currentLimit.toString());
     if (val && !isNaN(parseInt(val, 10))) {
       try {
-        await api.patch(`/admin/users/${userId}/download-limit`, { dailyDownloadLimit: parseInt(val, 10) });
+        await api.patch(`/admin/users/${userId}/download-limit`, {
+          dailyDownloadLimit: parseInt(val, 10),
+        });
         setUsersList((prev) =>
           prev.map((u) => (u.id === userId ? { ...u, dailyDownloadLimit: parseInt(val, 10) } : u))
         );
@@ -112,8 +135,53 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  // Video Management Handlers
+  const handleEditVideoSuccess = (updatedVideo: any) => {
+    setVideosList((prev) =>
+      prev.map((v) => (v.id === updatedVideo.id ? { ...v, ...updatedVideo } : v))
+    );
+    fetchDashboardStats();
+  };
+
+  const handleConfirmDeleteVideo = async () => {
+    if (!videoToDelete) return;
+    setIsDeletingVideo(true);
+    try {
+      await api.delete(`/videos/${videoToDelete.id}`);
+      setVideosList((prev) => prev.filter((v) => v.id !== videoToDelete.id));
+      setVideoToDelete(null);
+      fetchDashboardStats();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete video.');
+    } finally {
+      setIsDeletingVideo(false);
+    }
+  };
+
+  // Meeting Management Handlers
+  const handleConfirmEndMeeting = async () => {
+    if (!meetingToEnd) return;
+    setIsEndingMeeting(true);
+    try {
+      await api.post(`/meetings/${meetingToEnd.roomCode}/end`);
+      setMeetingsList((prev) =>
+        prev.map((m) =>
+          m.id === meetingToEnd.id
+            ? { ...m, status: 'ENDED', endedAt: new Date().toISOString() }
+            : m
+        )
+      );
+      setMeetingToEnd(null);
+      fetchDashboardStats();
+    } catch (err: any) {
+      alert(err.message || 'Failed to end meeting.');
+    } finally {
+      setIsEndingMeeting(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 pb-12 max-w-6xl mx-auto animate-fade-in">
+    <div className="space-y-8 pb-12 max-w-6xl mx-auto animate-fade-in font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-[#26292e]">
         <div>
@@ -122,7 +190,7 @@ export const AdminDashboardPage: React.FC = () => {
             <span>Administrator Control Console</span>
           </h1>
           <p className="text-xs text-zinc-500 mt-1">
-            Global management of broadcasts, users, comment moderation, quotas, and security audits.
+            Global management of broadcasts, real-time meetings, user accounts, and authenticated analytics.
           </p>
         </div>
 
@@ -140,7 +208,8 @@ export const AdminDashboardPage: React.FC = () => {
         {[
           { id: 'overview', label: 'Platform Stats' },
           { id: 'users', label: 'User Directory' },
-          { id: 'videos', label: 'Broadcasts' },
+          { id: 'videos', label: `Broadcasts (${videosList.length || stats?.totalVideos || 0})` },
+          { id: 'meetings', label: `Live Meetings (${stats?.activeMeetings || 0})` },
           { id: 'reports', label: `Moderation (${stats?.pendingCommentReports || 0})` },
           { id: 'downloads', label: 'Download Audit' },
           { id: 'logins', label: 'Security Logins' },
@@ -159,60 +228,170 @@ export const AdminDashboardPage: React.FC = () => {
         ))}
       </div>
 
-      {/* TAB 1: Platform Overview Stats */}
+      {/* TAB 1: Platform Overview Stats (100% Real Database Analytics) */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Main Numeric Indicators */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
               <span className="text-[11px] uppercase font-bold text-zinc-400">Total Users</span>
               <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
-                {stats?.totalUsers || 0}
+                {stats?.totalUsers ?? 0}
               </p>
               <span className="text-[10px] text-emerald-500 font-semibold">
-                {stats?.activeUsers || 0} active accounts
+                {stats?.activeUsers ?? 0} active accounts
               </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
               <span className="text-[11px] uppercase font-bold text-zinc-400">Broadcasts</span>
               <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
-                {stats?.totalVideos || 0}
+                {stats?.totalVideos ?? 0}
               </p>
-              <span className="text-[10px] text-zinc-500">Video library</span>
+              <span className="text-[10px] text-zinc-500">
+                {stats?.publishedVideos ?? 0} published publicly
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
               <span className="text-[11px] uppercase font-bold text-zinc-400">Total Views</span>
               <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
-                {stats?.totalViews?.toLocaleString() || 0}
+                {stats?.totalViews?.toLocaleString() ?? 0}
               </p>
-              <span className="text-[10px] text-zinc-500">Global stream impressions</span>
+              <span className="text-[10px] text-zinc-500">
+                {stats?.dedupedViewsRecorded ?? 0} deduplicated view sessions
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
+              <span className="text-[11px] uppercase font-bold text-zinc-400">Total Watch Time</span>
+              <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
+                {stats?.watchTimeHours ?? 0} <span className="text-sm font-normal text-zinc-400">hrs</span>
+              </p>
+              <span className="text-[10px] text-zinc-500">
+                {stats?.watchTimeMinutes ?? 0} minutes total stream time
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
               <span className="text-[11px] uppercase font-bold text-zinc-400">Downloads</span>
               <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
-                {stats?.totalDownloads || 0}
+                {stats?.totalDownloads ?? 0}
               </p>
               <span className="text-[10px] text-emerald-500 font-semibold">
-                {stats?.completedDownloads || 0} completed
+                {stats?.completedDownloads ?? 0} completed
               </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
-              <span className="text-[11px] uppercase font-bold text-zinc-400">Live Rooms</span>
+              <span className="text-[11px] uppercase font-bold text-zinc-400">WebRTC Live Rooms</span>
               <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
-                {stats?.activeMeetings || 0}
+                {stats?.activeMeetings ?? 0}
               </p>
-              <span className="text-[10px] text-[#e04f38] font-bold">WebRTC active</span>
+              <span className="text-[10px] text-[#e04f38] font-bold">
+                {stats?.endedMeetings ?? 0} ended • {stats?.totalMeetings ?? 0} created
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
-              <span className="text-[11px] uppercase font-bold text-zinc-400">Pending Reports</span>
-              <p className="font-heading font-black text-2xl text-[#e04f38]">
-                {stats?.pendingCommentReports || 0}
+              <span className="text-[11px] uppercase font-bold text-zinc-400">User Engagement</span>
+              <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
+                {stats?.userEngagementScore?.toLocaleString() ?? 0}
               </p>
-              <span className="text-[10px] text-zinc-500">Requires review</span>
+              <span className="text-[10px] text-zinc-500">
+                {stats?.totalComments ?? 0} comments • {stats?.totalMeetingParticipants ?? 0} attendees
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-1">
+              <span className="text-[11px] uppercase font-bold text-zinc-400">Storage Footprint</span>
+              <p className="font-heading font-black text-2xl text-zinc-900 dark:text-zinc-100">
+                {stats?.totalStorageMB ?? 0} <span className="text-sm font-normal text-zinc-400">MB</span>
+              </p>
+              <span className="text-[10px] text-zinc-500">Local video files</span>
+            </div>
+          </div>
+
+          {/* Real Analytics Breakdown Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            {/* Category Distribution */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-100 dark:border-[#202327] pb-3">
+                <h3 className="font-heading font-bold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Layers size={16} className="text-[#e04f38]" />
+                  <span>Category Distribution</span>
+                </h3>
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  {stats?.categoriesBreakdown?.length || 0} categories
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {stats?.categoriesBreakdown && stats.categoriesBreakdown.length > 0 ? (
+                  stats.categoriesBreakdown.map((cat: any) => {
+                    const totalV = stats.totalVideos || 1;
+                    const pct = Math.round((cat.count / totalV) * 100);
+                    return (
+                      <div key={cat.slug} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                            {cat.name}
+                          </span>
+                          <span className="text-zinc-400 font-mono">
+                            {cat.count} {cat.count === 1 ? 'broadcast' : 'broadcasts'} ({pct}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-[#202327] overflow-hidden">
+                          <div
+                            className="h-full bg-[#e04f38] rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-zinc-400 py-4 text-center">No categories registered.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Real 7-Day Activity Trend */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#22252a] space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-100 dark:border-[#202327] pb-3">
+                <h3 className="font-heading font-bold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Activity size={16} className="text-emerald-500" />
+                  <span>7-Day Authenticated Activity</span>
+                </h3>
+                <span className="text-[11px] text-zinc-400 font-mono">Exact DB events</span>
+              </div>
+
+              <div className="space-y-3">
+                {stats?.activityTimeline && stats.activityTimeline.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {stats.activityTimeline.map((item: any) => (
+                      <div
+                        key={item.date}
+                        className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-[#111316] border border-zinc-100 dark:border-[#202327] text-xs font-mono"
+                      >
+                        <span className="text-zinc-400">{item.date}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-zinc-700 dark:text-zinc-300">
+                            <strong className="text-zinc-900 dark:text-zinc-100">{item.views}</strong> views
+                          </span>
+                          <span className="text-emerald-500">
+                            <strong>{item.downloads}</strong> downloads
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-xs text-zinc-400">
+                    No activity recorded in the past 7 days.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -223,13 +402,16 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-3 max-w-sm">
             <div className="relative w-full">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              />
               <input
                 type="text"
-                placeholder="Search by username or email..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-[#15171a] border border-zinc-200 dark:border-[#26292e] rounded-xl text-zinc-800 dark:text-zinc-200"
+                placeholder="Search username or email..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-zinc-50 dark:bg-[#15171a] border border-zinc-200 dark:border-[#26292e] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-[#e04f38]"
               />
             </div>
           </div>
@@ -241,7 +423,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Role</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Daily Limit</th>
+                  <th className="py-3 px-4">Download Limit</th>
                   <th className="py-3 px-4">Joined</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -250,15 +432,19 @@ export const AdminDashboardPage: React.FC = () => {
                 {usersList.map((u) => (
                   <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-[#181a1d]">
                     <td className="py-3 px-4">
-                      <div>
-                        <span className="font-bold text-zinc-800 dark:text-zinc-200 block">
-                          {u.profile?.displayName || u.username}
-                        </span>
-                        <span className="text-[11px] text-zinc-400 font-mono">{u.email}</span>
+                      <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                        {u.profile?.displayName || u.username}
                       </div>
+                      <div className="text-[11px] text-zinc-400 font-mono">{u.email}</div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 dark:bg-[#202327]">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          u.role === 'ADMIN'
+                            ? 'bg-[#e04f38]/15 text-[#e04f38]'
+                            : 'bg-zinc-100 dark:bg-[#202327] text-zinc-400'
+                        }`}
+                      >
                         {u.role}
                       </span>
                     </td>
@@ -304,7 +490,7 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: Broadcasts Video Library */}
+      {/* TAB 3: Broadcasts Video Library (With Edit & Delete) */}
       {activeTab === 'videos' && (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-[#22252a] bg-white dark:bg-[#15171a] shadow-sm">
@@ -313,9 +499,11 @@ export const AdminDashboardPage: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Broadcast</th>
                   <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Visibility</th>
                   <th className="py-3 px-4">Views</th>
                   <th className="py-3 px-4">Uploader</th>
                   <th className="py-3 px-4">Published</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-[#202327]">
@@ -334,10 +522,39 @@ export const AdminDashboardPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">{v.category?.name || 'General'}</td>
-                    <td className="py-3 px-4 font-mono">{v.viewCount.toLocaleString()}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          v.isPublished
+                            ? 'bg-emerald-500/15 text-emerald-500'
+                            : 'bg-zinc-500/15 text-zinc-400'
+                        }`}
+                      >
+                        {v.isPublished ? 'Public' : 'Draft'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-mono">{v.viewCount?.toLocaleString() ?? 0}</td>
                     <td className="py-3 px-4 text-zinc-400">@{v.uploader?.username}</td>
                     <td className="py-3 px-4 text-zinc-400">
                       {formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setVideoToEdit(v)}
+                          className="p-1.5 rounded-lg border border-zinc-200 dark:border-[#2a2e35] text-zinc-600 dark:text-zinc-300 hover:text-[#e04f38] hover:border-[#e04f38] transition-colors"
+                          title="Edit broadcast details"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => setVideoToDelete(v)}
+                          className="p-1.5 rounded-lg border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors"
+                          title="Delete broadcast"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -347,7 +564,80 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: Comment Moderation Queue */}
+      {/* TAB 4: Live Meetings Management (End Any Meeting) */}
+      {activeTab === 'meetings' && (
+        <div className="space-y-4">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-[#22252a] bg-white dark:bg-[#15171a] shadow-sm">
+            <table className="w-full text-left text-xs text-zinc-600 dark:text-zinc-300">
+              <thead className="bg-zinc-50 dark:bg-[#181a1d] text-zinc-400 uppercase text-[10px] font-bold border-b border-zinc-200 dark:border-[#26292e]">
+                <tr>
+                  <th className="py-3 px-4">Meeting</th>
+                  <th className="py-3 px-4">Room Code</th>
+                  <th className="py-3 px-4">Host</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Started</th>
+                  <th className="py-3 px-4">Participants</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-[#202327]">
+                {meetingsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-zinc-400">
+                      No meetings found in database records.
+                    </td>
+                  </tr>
+                ) : (
+                  meetingsList.map((m) => (
+                    <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-[#181a1d]">
+                      <td className="py-3 px-4 font-bold text-zinc-900 dark:text-zinc-100">
+                        {m.title}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[#e04f38]">{m.roomCode}</td>
+                      <td className="py-3 px-4 text-zinc-400">
+                        @{m.host?.username || 'Unknown'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            m.status === 'ACTIVE'
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : 'bg-zinc-500/15 text-zinc-400'
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-zinc-400">
+                        {formatDistanceToNow(new Date(m.startedAt), { addSuffix: true })}
+                      </td>
+                      <td className="py-3 px-4 font-mono">
+                        {m.participants?.length ?? 0} connected
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {m.status === 'ACTIVE' ? (
+                          <button
+                            onClick={() => setMeetingToEnd(m)}
+                            className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1.5 ml-auto transition-colors shadow-sm"
+                            title="End meeting as administrator"
+                          >
+                            <PowerOff size={12} />
+                            <span>End Meeting</span>
+                          </button>
+                        ) : (
+                          <span className="text-zinc-500 text-[11px] font-medium">Ended</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: Comment Moderation Queue */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
           {reportsList.length === 0 ? (
@@ -370,31 +660,27 @@ export const AdminDashboardPage: React.FC = () => {
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-500">
                         {rep.reason}
                       </span>
-                      <span className="text-zinc-400">
-                        Reported by @{rep.reporter?.username} • Video: "{rep.comment?.video?.title}"
+                      <span className="text-zinc-400 text-[11px]">
+                        Reported by @{rep.reporter?.username} on video "{rep.comment?.video?.title}"
                       </span>
                     </div>
-                    <p className="text-zinc-800 dark:text-zinc-200 font-medium bg-zinc-50 dark:bg-[#111316] p-2 rounded-lg border border-zinc-200 dark:border-[#26292e]">
+                    <p className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111316] text-zinc-800 dark:text-zinc-200 border border-zinc-100 dark:border-[#26292e]">
                       "{rep.comment?.content}"
                     </p>
-                    {rep.details && (
-                      <p className="text-[11px] text-zinc-500 italic">Details: {rep.details}</p>
-                    )}
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleResolveReport(rep.id, 'DISMISS')}
-                      className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold"
-                    >
-                      Dismiss Report
-                    </button>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleResolveReport(rep.id, 'DELETE_COMMENT')}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
                     >
-                      <Trash2 size={13} />
-                      <span>Delete Comment</span>
+                      Delete Comment
+                    </button>
+                    <button
+                      onClick={() => handleResolveReport(rep.id, 'DISMISS')}
+                      className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-[#2a2e35] text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 transition-colors"
+                    >
+                      Dismiss
                     </button>
                   </div>
                 </div>
@@ -404,16 +690,128 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Upload Modal */}
+      {/* TAB 6: Download Audit Records */}
+      {activeTab === 'downloads' && (
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-[#22252a] bg-white dark:bg-[#15171a] shadow-sm">
+          <table className="w-full text-left text-xs text-zinc-600 dark:text-zinc-300">
+            <thead className="bg-zinc-50 dark:bg-[#181a1d] text-zinc-400 uppercase text-[10px] font-bold border-b border-zinc-200 dark:border-[#26292e]">
+              <tr>
+                <th className="py-3 px-4">User</th>
+                <th className="py-3 px-4">Broadcast</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-[#202327]">
+              {downloadsList.map((d) => (
+                <tr key={d.id} className="hover:bg-zinc-50 dark:hover:bg-[#181a1d]">
+                  <td className="py-3 px-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                    @{d.user?.username}
+                  </td>
+                  <td className="py-3 px-4">{d.video?.title}</td>
+                  <td className="py-3 px-4">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        d.status === 'COMPLETED'
+                          ? 'bg-emerald-500/15 text-emerald-500'
+                          : 'bg-amber-500/15 text-amber-500'
+                      }`}
+                    >
+                      {d.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-zinc-400">
+                    {new Date(d.downloadDate).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* TAB 7: Security Logins Audit */}
+      {activeTab === 'logins' && (
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-[#22252a] bg-white dark:bg-[#15171a] shadow-sm">
+          <table className="w-full text-left text-xs text-zinc-600 dark:text-zinc-300">
+            <thead className="bg-zinc-50 dark:bg-[#181a1d] text-zinc-400 uppercase text-[10px] font-bold border-b border-zinc-200 dark:border-[#26292e]">
+              <tr>
+                <th className="py-3 px-4">User</th>
+                <th className="py-3 px-4">IP Address</th>
+                <th className="py-3 px-4">Device / OS</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-[#202327]">
+              {loginsList.map((l) => (
+                <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-[#181a1d]">
+                  <td className="py-3 px-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                    {l.user?.username ? `@${l.user.username}` : l.attemptedEmail}
+                  </td>
+                  <td className="py-3 px-4 font-mono">{l.ipAddress}</td>
+                  <td className="py-3 px-4 text-zinc-400">
+                    {l.browserName} on {l.osName}
+                  </td>
+                  <td className="py-3 px-4">
+                    {l.isSuccess ? (
+                      <span className="text-emerald-500 font-semibold">Success</span>
+                    ) : (
+                      <span className="text-red-500 font-semibold">Failed</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-zinc-400">
+                    {new Date(l.timestamp).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modals */}
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUploadSuccess={() => {
-          fetchDashboardStats();
           loadTabData();
+          fetchDashboardStats();
         }}
+      />
+
+      <EditVideoModal
+        isOpen={Boolean(videoToEdit)}
+        video={videoToEdit}
+        onClose={() => setVideoToEdit(null)}
+        onSuccess={handleEditVideoSuccess}
+      />
+
+      {/* Confirm Delete Video Modal */}
+      <ConfirmModal
+        isOpen={Boolean(videoToDelete)}
+        title="Permanently Delete Broadcast?"
+        message={`Are you sure you want to permanently delete "${videoToDelete?.title}"? All associated media files, comments, progress records, and download history will be irreversibly removed from storage and database.`}
+        confirmText="Delete Video"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        isLoading={isDeletingVideo}
+        onConfirm={handleConfirmDeleteVideo}
+        onClose={() => setVideoToDelete(null)}
+      />
+
+      {/* Confirm End Meeting Modal */}
+      <ConfirmModal
+        isOpen={Boolean(meetingToEnd)}
+        title="End Meeting as Administrator?"
+        message={`Ending "${meetingToEnd?.title}" (Room: ${meetingToEnd?.roomCode}) will immediately terminate the conference for all participants, stop active media tracks, and permanently mark the meeting as ENDED.`}
+        confirmText="End Meeting for All"
+        cancelText="Keep Active"
+        confirmVariant="danger"
+        isLoading={isEndingMeeting}
+        onConfirm={handleConfirmEndMeeting}
+        onClose={() => setMeetingToEnd(null)}
       />
     </div>
   );
 };
-

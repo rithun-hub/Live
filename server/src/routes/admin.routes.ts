@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller';
+import { meetingController } from '../controllers/meeting.controller';
 import { authenticateJWT, requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -20,6 +21,7 @@ router.post('/reports/:id/resolve', (req, res, next) => adminController.resolveR
 router.get('/downloads', (req, res, next) => adminController.listDownloads(req, res, next));
 router.get('/logins', (req, res, next) => adminController.listLogins(req, res, next));
 router.get('/meetings', (req, res, next) => adminController.listMeetings(req, res, next));
+router.post('/meetings/:id/end', (req, res, next) => meetingController.endMeeting(req, res, next));
 
 export default router;
 

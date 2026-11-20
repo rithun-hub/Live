@@ -10,10 +10,13 @@ export const createVideoSchema = z.object({
 });
 
 export const updateVideoSchema = z.object({
-  title: z.string().min(3).max(120).optional(),
+  title: z.string().min(3, 'Title must be at least 3 characters').max(120).optional(),
   description: z.string().max(3000).optional(),
-  categoryId: z.string().optional(),
-  isPublished: z.boolean().optional(),
+  categoryId: z.string().nullable().optional(),
+  isPublished: z.preprocess((val) => {
+    if (typeof val === 'string') return val === 'true';
+    return val;
+  }, z.boolean().optional()),
 });
 
 export const updateProgressSchema = z.object({

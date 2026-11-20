@@ -119,7 +119,8 @@ export class AdminController {
 
   async listMeetings(req: Request, res: Response, next: NextFunction) {
     try {
-      const meetings = await adminService.listActiveMeetings();
+      const status = req.query.status as string;
+      const meetings = await adminService.listActiveMeetings(status);
       return res.status(200).json({ success: true, meetings });
     } catch (error) {
       next(error);

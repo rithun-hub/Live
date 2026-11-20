@@ -116,12 +116,53 @@ export class VideoService {
     };
   }
 
-  async incrementViews(videoId: string) {
+  async incrementViews(videoId: string, ipAddress?: string, userId?: string) {
+    if (ipAddress) {
+      return this.recordView(videoId, ipAddress, userId);
+    }
     return prisma.video.update({
       where: { id: videoId },
       data: { viewCount: { increment: 1 } },
       select: { id: true, viewCount: true },
     });
+  }
+
+  async recordView(videoId: string, ipAddress: string, userId?: string) {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const existing = await prisma.videoView.findFirst({
+      where: {
+        videoId,
+        createdAt: { gte: thirtyMinutesAgo },
+        OR: [
+          { ipAddress },
+          ...(userId ? [{ userId }] : []),
+        ],
+      },
+    });
+
+    if (existing) {
+      const v = await prisma.video.findUnique({
+        where: { id: videoId },
+        select: { id: true, viewCount: true },
+      });
+      return { incremented: false, viewCount: v?.viewCount || 0 };
+    }
+
+    await prisma.videoView.create({
+      data: {
+        videoId,
+        ipAddress: ipAddress || '127.0.0.1',
+        userId: userId || null,
+      },
+    });
+
+    const updated = await prisma.video.update({
+      where: { id: videoId },
+      data: { viewCount: { increment: 1 } },
+      select: { id: true, viewCount: true },
+    });
+
+    return { incremented: true, viewCount: updated.viewCount };
   }
 
   async updateProgress(
@@ -336,6 +377,102 @@ export class VideoService {
         isPublished: data.isPublished !== undefined ? data.isPublished : true,
       },
     });
+  }
+
+  async updateVideo(
+    videoId: string,
+    userId: string,
+    userRole: string,
+    data: {
+      title?: string;
+      description?: string;
+      categoryId?: string | null;
+      isPublished?: boolean;
+    },
+    thumbnailFile?: Express.Multer.File
+  ) {
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+    });
+
+    if (!video) {
+      throw new Error('Video not found.');
+    }
+
+    if (video.uploaderId !== userId && userRole !== 'ADMIN') {
+      throw new Error('Permission denied: You are not authorized to edit this broadcast.');
+    }
+
+    const updatePayload: any = {};
+    if (data.title !== undefined) updatePayload.title = data.title;
+    if (data.description !== undefined) updatePayload.description = data.description;
+    if (data.categoryId !== undefined) updatePayload.categoryId = data.categoryId || null;
+    if (data.isPublished !== undefined) updatePayload.isPublished = data.isPublished;
+
+    if (thumbnailFile) {
+      const savedThumb = await storageService.saveFile(thumbnailFile, 'thumbnails');
+      updatePayload.thumbnailUrl = savedThumb.url;
+
+      // Clean up old thumbnail if it's local custom upload
+      if (video.thumbnailUrl && video.thumbnailUrl.startsWith('/uploads/thumbnails/') && !video.thumbnailUrl.includes('default-thumb')) {
+        await storageService.deleteFile(video.thumbnailUrl);
+      }
+    }
+
+    return prisma.video.update({
+      where: { id: videoId },
+      data: updatePayload,
+      include: {
+        category: true,
+        uploader: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: { displayName: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async deleteVideo(videoId: string, userId: string, userRole: string) {
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      include: {
+        uploader: { select: { username: true } },
+      },
+    });
+
+    if (!video) {
+      throw new Error('Video not found.');
+    }
+
+    if (video.uploaderId !== userId && userRole !== 'ADMIN') {
+      throw new Error('Permission denied: You are not authorized to delete this broadcast.');
+    }
+
+    // 1. Delete media files from local storage if applicable
+    if (video.videoUrl && video.videoUrl.startsWith('/uploads/videos/')) {
+      await storageService.deleteFile(video.videoUrl);
+    }
+
+    if (video.thumbnailUrl && video.thumbnailUrl.startsWith('/uploads/thumbnails/') && !video.thumbnailUrl.includes('default-thumb')) {
+      await storageService.deleteFile(video.thumbnailUrl);
+    }
+
+    // 2. Cascade delete database record
+    await prisma.video.delete({
+      where: { id: videoId },
+    });
+
+    return {
+      success: true,
+      deletedVideoId: videoId,
+      title: video.title,
+      message: `Broadcast "${video.title}" was permanently removed.`,
+    };
   }
 }
 

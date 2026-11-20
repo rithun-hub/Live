@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Download, Eye, ThumbsUp, Share2, Check, AlertCircle } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Download, Eye, ThumbsUp, Share2, Check, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { Video } from '../types';
 import { api } from '../services/api';
 import { CustomVideoPlayer } from '../components/player/CustomVideoPlayer';
 import { CommentSection } from '../components/comments/CommentSection';
+import { EditVideoModal } from '../components/modals/EditVideoModal';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
 export const WatchPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const [video, setVideo] = useState<Video | null>(null);
   const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
@@ -22,6 +25,11 @@ export const WatchPage: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Edit & Delete state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
@@ -93,6 +101,19 @@ export const WatchPage: React.FC = () => {
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     alert('Broadcast link copied to clipboard!');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!video) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/videos/${video.id}`);
+      navigate('/');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete video.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -191,6 +212,28 @@ export const WatchPage: React.FC = () => {
                   <Share2 size={14} />
                   <span>Share</span>
                 </button>
+
+                {/* Owner / Admin Management Buttons */}
+                {(user?.id === video.uploaderId || user?.role === 'ADMIN') && (
+                  <>
+                    <button
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-[#181a1d] hover:bg-zinc-200 dark:hover:bg-[#202327] border border-zinc-200 dark:border-[#26292e] transition-colors"
+                      title="Edit broadcast metadata"
+                    >
+                      <Edit3 size={14} />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-colors"
+                      title="Delete broadcast permanently"
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -294,6 +337,29 @@ export const WatchPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Video Modal */}
+      <EditVideoModal
+        isOpen={isEditModalOpen}
+        video={video}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={(updated) => {
+          setVideo((prev) => (prev ? { ...prev, ...updated } : null));
+        }}
+      />
+
+      {/* Delete Video Confirm Modal */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Broadcast?"
+        message={`Are you sure you want to permanently delete "${video.title}"? This will delete the video from storage and cascade remove comments and progress.`}
+        confirmText="Delete Video"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setIsDeleteModalOpen(false)}
+      />
     </div>
   );
 };

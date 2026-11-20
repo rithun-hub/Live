@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { videoService } from '../services/video.service';
 import { AuthRequest } from '../middleware/auth';
-import { createVideoSchema, updateProgressSchema } from '../validators/video.validator';
+import { createVideoSchema, updateVideoSchema, updateProgressSchema } from '../validators/video.validator';
 import { parseClientInfo } from '../utils/geo';
 import { storageService } from '../utils/storage';
 
@@ -27,8 +27,9 @@ export class VideoController {
       const userId = req.user?.userId;
       const video = await videoService.getVideoByIdOrSlug(id, userId);
 
-      // Trigger view increment
-      videoService.incrementViews(video.id).catch((e) => console.error('View increment error', e));
+      // Trigger deduplicated view increment (1 view per IP/User per 30 minutes)
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+      videoService.incrementViews(video.id, clientIp, userId).catch((e) => console.error('View increment error', e));
 
       return res.status(200).json({ success: true, video });
     } catch (error) {
@@ -178,6 +179,40 @@ export class VideoController {
         res.writeHead(200, head);
         storageService.getFileStream(relativePath).pipe(res);
       }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateVideo(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const validated = updateVideoSchema.parse(req.body);
+      const thumbnailFile = req.file;
+
+      const updated = await videoService.updateVideo(
+        id,
+        req.user!.userId,
+        req.user!.role,
+        validated,
+        thumbnailFile
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Broadcast updated successfully.',
+        video: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteVideo(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const result = await videoService.deleteVideo(id, req.user!.userId, req.user!.role);
+      return res.status(200).json(result);
     } catch (error) {
       next(error);
     }

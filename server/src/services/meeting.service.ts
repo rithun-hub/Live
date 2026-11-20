@@ -83,18 +83,35 @@ export class MeetingService {
     return meeting;
   }
 
-  async endMeeting(meetingId: string, hostId: string) {
-    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
-    if (!meeting) throw new Error('Meeting not found.');
-    if (meeting.hostId !== hostId) throw new Error('Only the meeting host can end this session.');
+  async endMeeting(identifier: string, userId: string, userRole?: string) {
+    const meeting = await prisma.meeting.findFirst({
+      where: {
+        OR: [
+          { id: identifier },
+          { roomCode: identifier },
+        ],
+      },
+    });
 
-    return prisma.meeting.update({
-      where: { id: meetingId },
+    if (!meeting) throw new Error('Meeting not found.');
+    if (meeting.hostId !== userId && userRole !== 'ADMIN') {
+      throw new Error('Only the meeting host or an administrator can end this session.');
+    }
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
       data: {
         status: 'ENDED',
         endedAt: new Date(),
       },
     });
+
+    await prisma.meetingParticipant.updateMany({
+      where: { meetingId: meeting.id, leftAt: null },
+      data: { leftAt: new Date() },
+    });
+
+    return updated;
   }
 
   async updateMeetingPermissions(
